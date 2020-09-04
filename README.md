@@ -1,5 +1,6 @@
 # ams2
-L’idée de ce projet se repose sur quatre étapes :
+L’idée de ce projet se repose sur quatre étapes 
+(Toujours en phase de developpement):
 
 1. Recevoir une commande vocale et la subdiviser en tranches de mots(Données chronologiques) ;
 
