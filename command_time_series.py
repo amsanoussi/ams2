@@ -1,5 +1,18 @@
-import nltk
-nltk.download('punkt')
+"""L'idee de ce projet se repose sur quatre etapes:
+
+1. Recevoir une commande vocale et la subdiviser en tranches de mots(Donnees chronologiques);
+
+2. Traiter chaque tranche pour obtenir son evolution chronologique: determiner les caracteristiques de chaque tranche (Tt,St et Rt);
+
+3. Reconstruire la phrase de l'auteur, sous format texte,(en effectuant une recherche des caracteristiques de chaque mot dans notre liste de mots pre-entraines)
+
+4. Executer la commande emise par l'expression de l'auteur.
+
+NB: Vu l'envergure de la partie execution des commandes, nous nous somme limite a un certain nombre de commande: eteindre un ordinateur, ouvrir un logiciel a travers son nom, ecrire un texte en format txt ou word, lancer des requetes sur le navigateur web, creer, ouvrir, modifier ou supprimer un dossier ou un fichier. 
+"""
+
+#import nltk
+#nltk.download('punkt')
 from gtts import gTTS
 import pygame.mixer
 import time
@@ -9,7 +22,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 import webbrowser
-
+import scipy
 #Le receuille du son, etant pas facile sur tout a temps reel, essayon d'utiliser un mot a l'exemple(eteindre)
 eteindre=[t,X(t)]
 
@@ -94,10 +107,42 @@ dict_mots=dict_caracterisation_mot(list_mots)
 #Reconstitution de l'expression d'auteur: 3eme etape
 def reconstitu_com(dict_mots):
     command=""
-    for mot in dict_mots.values():
-        command+=list(dict_mots_pre_entraine.keys())[list(dict_mots_pre_entraine.values()).index(mot)]
-    return command
     
+    for mot in dict_mots.values():
+        
+        for m_pre in dict_mots_pre_entraine.values():
+            a=b=c=False
+            #test pour la tendance 
+            #chercher l'erreur entre chaque mot de commande avec chaque mot du dictionnair pre_entraine
+            erreur=[mot.trend[i]-m_pre.trend[i] for i in range(max(len(mot.trend),len(m_pre.trend)))]
+            #faire un test de significativite sur la variable erreur, au niveau 95% soit alpha=5%
+            #Ceci permet de verifier que l'erreur est presque constante, donc les deux courbes sont presque paralleles
+            if scipy.stats.ttest_rel([i for i in range(len(erreur))], erreur)[1]>=0.05:
+                #l'Hypothese que a est nul est verifier donc erreur= o*t+b = cst
+                a=True
+
+            #test pour la saisonnalite
+            #chercher l'erreur entre chaque mot de commande avec chaque mot du dictionnair pre_entraine
+            erreur=[mot.seasonal[i]-m_pre.seasonal[i] for i in range(max(len(mot.seasonal),len(m_pre.seasonal)))]
+            #faire un test de significativite sur la variable erreur, au niveau 95% soit alpha=5%
+            #Ceci permet de verifier que l'erreur est presque constante, donc les deux courbes sont presque paralleles
+            if scipy.stats.ttest_rel([i for i in range(len(erreur))], erreur)[1]>=0.05:
+                #l'Hypothese que a est nul est verifier donc erreur= o*t+b = cst
+                b=True
+
+            #test pour les residus
+            #chercher l'erreur entre chaque mot de commande avec chaque mot du dictionnair pre_entraine
+            erreur=[mot.resid[i]-m_pre.resid[i] for i in range(max(len(mot.resid),len(m_pre.resid)))]
+            #faire un test de significativite sur la variable erreur, au niveau 95% soit alpha=5%
+            #Ceci permet de verifier que l'erreur est presque constante, donc les deux courbes sont presque paralleles
+            if scipy.stats.ttest_rel([i for i in range(len(erreur))], erreur)[1]>=0.05:
+                #l'Hypothese que a est nul est verifier donc erreur= o*t+b = cst
+                c=True
+
+            if a and b and c:
+                 command+=list(dict_mots_pre_entraine.keys())[list(dict_mots_pre_entraine.values()).index(m_pre)]
+    return command
+
 Command=reconstitu_com(dict_mots)
 
 #Ex: Command="eteindre mon odinateur!"
@@ -295,7 +340,6 @@ def action(Command):
          ex.editer_text() 
      
 action(Command)
-
 try:
     os.system("rm audio0.mp3 audio1.mp3 audio2.mp3")
 except:
