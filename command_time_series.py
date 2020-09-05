@@ -60,7 +60,7 @@ def sonn(my_text,t):
 #Etrainement de la lecture des mots
 #Cette etape ne necessite qu'une seul execution
 def dict_entrainement_mots():
-    f=open('/home/ams/Bureau/Serie chrono/liste_francais.txt','r')
+    f=open('liste_francais.txt','r')
     tex=f.read()
     mots=tex.split()
     d={}
