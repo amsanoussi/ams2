@@ -13,25 +13,38 @@ NB: Vu l'envergure de la partie execution des commandes, nous nous somme limite 
 
 #import nltk
 #nltk.download('punkt')
-from gtts import gTTS
-import pygame.mixer
-import time
 import os
+import time
+import pygame.mixer
+from gtts import gTTS
+import webbrowser
 from tkinter import messagebox
 import numpy as np
 import matplotlib.pyplot as plt
-import statsmodels.api as sm
-import webbrowser
+#import statsmodels.api as sm
 import scipy
-#Le receuille du son, etant pas facile sur tout a temps reel, essayon d'utiliser un mot a l'exemple(eteindre)
-eteindre=[t,X(t)]
+
+#Le receuille du son, etant pas facile surtout a temps reel, essayon d'utiliser un mot a l'exemple(eteindre)
+#eteindre.txt est un data frame correspondant a notre serie
 
 #Tableu des valeurs de la serie
-def coordonnees(song):
-    table=[]
-    return table
-
-#Table=coordonnees(Song)
+def coordonnees(mot):
+    et=open(mot)
+    data=et.read()
+    data=data[27:].replace(",",".")
+    D=data.split()
+    t=[]
+    X=[]
+    for i in range(0,len(D)-1,2):
+        t.append(float(D[i]))
+        X.append(abs(float(D[i+1])))
+    return t,X
+#Le fichier eteindre.txt est le dataframe lié au projet.
+mot='eteindre.txt'
+t,X=coordonnees(mot)
+Table=(t,X)
+plt.plot(t,X)
+plt.show()
 
 #Creation/Lecture d'une expression
 def sonn(my_text,t):
@@ -43,7 +56,6 @@ def sonn(my_text,t):
     pygame.mixer.music.load(fich)
     pygame.mixer.music.play()
     time.sleep(6)
-
 
 #Etrainement de la lecture des mots
 #Cette etape ne necessite qu'une seul execution
@@ -68,8 +80,6 @@ dict_mots_pre_entraine=dict_entrainement_mots()
 #Recevoir et subdiviser un son: 1ere etatpe
 
 #Division en tranche
-
-Table=eteindre
 
 def divise_mots(table):
     lm=[]
