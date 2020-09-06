@@ -11,23 +11,25 @@
 NB: Vu l'envergure de la partie execution des commandes, nous nous somme limite a un certain nombre de commande: eteindre un ordinateur, ouvrir un logiciel a travers son nom, ecrire un texte en format txt ou word, lancer des requetes sur le navigateur web, creer, ouvrir, modifier ou supprimer un dossier ou un fichier. 
 """
 
-#import nltk
-#nltk.download('punkt')
+import nltk
+nltk.download('punkt')
 import os
 import time
-import pygame.mixer
+#import pygame.mixer ou
+from playsound import playsound
 from gtts import gTTS
 import webbrowser
 from tkinter import messagebox
 import numpy as np
 import matplotlib.pyplot as plt
-#import statsmodels.api as sm
-import scipy
+import pandas as pd
+import statsmodels.api as sm
+from scipy import interpolate
 
 #Le receuille du son, etant pas facile surtout a temps reel, essayon d'utiliser un mot a l'exemple(eteindre)
-#eteindre.txt est un data frame correspondant a notre serie
+#eteindre.txt est un dataframe correspondant a notre serie
 
-#Tableu des valeurs de la serie
+#Tableu des valeurs de la serie(DataFrame)
 def coordonnees(mot):
     et=open(mot)
     data=et.read()
@@ -38,13 +40,17 @@ def coordonnees(mot):
     for i in range(0,len(D)-1,2):
         t.append(float(D[i]))
         X.append(abs(float(D[i+1])))
-    return t,X
-#Le fichier eteindre.txt est le dataframe lié au projet.
-mot='eteindre.txt'
-t,X=coordonnees(mot)
-Table=(t,X)
-plt.plot(t,X)
-plt.show()
+    Y=[]
+    for i in range(len(t)):
+        Y.append([t[i],X[i]])
+    dta=pd.DataFrame(Y,columns=['co1','co2'])
+    return dta
+    
+mot='spectre.txt'
+dta=coordonnees(mot)
+
+Table=(list(dta.co1),list(dta.co2))
+
 
 #Creation/Lecture d'une expression
 def sonn(my_text,t):
@@ -52,13 +58,15 @@ def sonn(my_text,t):
     fich="audio"+str(t)+".mp3"
     my_audio=gTTS(text=my_text,lang=language,slow=False)
     my_audio.save(fich)
-    pygame.mixer.init()
-    pygame.mixer.music.load(fich)
-    pygame.mixer.music.play()
-    time.sleep(6)
+    playsound(fich)
+    #ou:
+    #pygame.mixer.init()
+    #pygame.mixer.music.load(fich)
+    #pygame.mixer.music.play()
+    #time.sleep(6)
 
 #Etrainement de la lecture des mots
-#Cette etape ne necessite qu'une seul execution
+
 def dict_entrainement_mots():
     f=open('liste_francais.txt','r')
     tex=f.read()
@@ -67,14 +75,16 @@ def dict_entrainement_mots():
     for i in mots:
         sonn(i,0)
         song=i+".mp3"
-        mot=coordonnees(song)
-        X=mot[1].interpolate(inplace=True)
-        dec = sm.tsa.seasonal_decompose(X)
-        #dec est constitue de 3 listes: tendence,saison,residu
+        songg=song+'.txt'
+        dta=coordonnees(songg)
+        dta.co2.interpolate(inplace=True)
+        res = sm.tsa.seasonal_decompose(dta.co2,period = 30)
+        #dec est constitue de 3 colones dataframe: tendence,saison,residu
         d[i]=dec
     return d
 
-#global dict_mots_pre_entraine
+#Cette etape ne necessite qu'une seul execution
+global dict_mots_pre_entraine
 dict_mots_pre_entraine=dict_entrainement_mots()
 
 #Recevoir et subdiviser un son: 1ere etatpe
@@ -87,7 +97,7 @@ def divise_mots(table):
     X=table[1]
     pos=0
     for i in range(len(t)):
-        while abs(X[i])>0.001:
+        while i<len(t) and abs(X[i])>0.001:
             i+=1
         m=(t[pos:i],X[pos:i])
         lm.append(m)
@@ -103,16 +113,16 @@ def dict_caracterisation_mot(list_mots):
      ide=0 #identite des mot
      dict_mots={}
      for mot in list_mots:
-    
-         X=mot[1].interpolate(inplace=True)
-         dec = sm.tsa.seasonal_decompose(X)
+         dta.co2.interpolate(inplace=True)
+         res = sm.tsa.seasonal_decompose(dta.co2,period = 30)
          #dec est constitue de 3 listes: tendence,saison,residu
-         dict_mots[ide]=dec
+         dict_mots[ide]=res
          ide+=1 
      return dict_mots
 
 
 dict_mots=dict_caracterisation_mot(list_mots)
+print(dict_mots)
 
 #Reconstitution de l'expression d'auteur: 3eme etape
 def reconstitu_com(dict_mots):
@@ -124,29 +134,19 @@ def reconstitu_com(dict_mots):
             a=b=c=False
             #test pour la tendance 
             #chercher l'erreur entre chaque mot de commande avec chaque mot du dictionnair pre_entraine
-            erreur=[mot.trend[i]-m_pre.trend[i] for i in range(max(len(mot.trend),len(m_pre.trend)))]
+            erreur=[list(mot.trend)[i]-list(m_pre.trend)[i] for i in range(min(len(mot.trend),len(m_pre.trend)))]
             #faire un test de significativite sur la variable erreur, au niveau 95% soit alpha=5%
             #Ceci permet de verifier que l'erreur est presque constante, donc les deux courbes sont presque paralleles
             if scipy.stats.ttest_rel([i for i in range(len(erreur))], erreur)[1]>=0.05:
-                #l'Hypothese que a est nul est verifier donc erreur= o*t+b = cst
                 a=True
-
-            #test pour la saisonnalite
-            #chercher l'erreur entre chaque mot de commande avec chaque mot du dictionnair pre_entraine
-            erreur=[mot.seasonal[i]-m_pre.seasonal[i] for i in range(max(len(mot.seasonal),len(m_pre.seasonal)))]
-            #faire un test de significativite sur la variable erreur, au niveau 95% soit alpha=5%
-            #Ceci permet de verifier que l'erreur est presque constante, donc les deux courbes sont presque paralleles
+                
+            #On fait pareil pour la saison et le residu
+            erreur=[list(mot.seasonal)[i]-list(m_pre.seasonal)[i] for i in range(min(len(mot.seasonal),len(m_pre.seasonal)))]
             if scipy.stats.ttest_rel([i for i in range(len(erreur))], erreur)[1]>=0.05:
-                #l'Hypothese que a est nul est verifier donc erreur= o*t+b = cst
                 b=True
 
-            #test pour les residus
-            #chercher l'erreur entre chaque mot de commande avec chaque mot du dictionnair pre_entraine
-            erreur=[mot.resid[i]-m_pre.resid[i] for i in range(max(len(mot.resid),len(m_pre.resid)))]
-            #faire un test de significativite sur la variable erreur, au niveau 95% soit alpha=5%
-            #Ceci permet de verifier que l'erreur est presque constante, donc les deux courbes sont presque paralleles
+            erreur=[list(mot.resid)[i]-list(m_pre.resid)[i] for i in range(min(len(mot.resid),len(m_pre.resid)))]
             if scipy.stats.ttest_rel([i for i in range(len(erreur))], erreur)[1]>=0.05:
-                #l'Hypothese que a est nul est verifier donc erreur= o*t+b = cst
                 c=True
 
             if a and b and c:
